@@ -61,16 +61,61 @@ class sprite():
             ynorm = ydiff / magnitude
             return xnorm, ynorm
         else:
-            return xdiff, ydiff
+            return xdiff, ydiff, magnitude
 
     def istouching(self, target):
-        xdiff, ydiff = self.distanceto(target, normed=False)
+        xdiff, ydiff, magnitude = self.distanceto(target, normed=False)
         if (abs(xdiff) < (self.img_width + target.img_width)/2 and
             abs(ydiff) < (self.img_height + target.img_width)/2):
             return True
 
-    # def spritecontrol(self):
-    #     if self.spritetype == "player":
+    def spritecontrol(self, target=None, friendslist=[], enemieslist = []):
+        if self.spritetype == "player":
+            if (pygame.key.get_pressed()[pygame.K_LEFT]):
+                self.ax = -self.accel
+            if (pygame.key.get_pressed()[pygame.K_RIGHT]):
+                self.ax = self.accel
+            if (pygame.key.get_pressed()[pygame.K_UP]):
+                self.ay = -self.accel
+            if (pygame.key.get_pressed()[pygame.K_DOWN]):
+                self.ay = self.accel
+            if not(pygame.key.get_pressed()[pygame.K_LEFT] or
+                   pygame.key.get_pressed()[pygame.K_RIGHT]):
+                self.ax=0
+            if not(pygame.key.get_pressed()[pygame.K_UP] or
+                   pygame.key.get_pressed()[pygame.K_DOWN]):
+                self.ay=0
+
+        if self.spritetype == "ball":
+            if target == None:
+                raise ValueError("no target defined!")
+            if (pygame.key.get_pressed()[pygame.K_SPACE]):
+                dirx, diry = self.distanceto(target, normed = True)
+                self.ax = -dirx
+                self.ay = -diry
+            if not(pygame.key.get_pressed()[pygame.K_SPACE]):
+                self.ax =0
+                self.ay = 0
+
+        if self.spritetype == "enemy":
+            dirx, diry = self.distanceto(target)
+            self.ax = -dirx * 0.05
+            self.ay = -diry * 0.05
+            if friendslist != []:
+                for i in friendslist:
+                    xdiff, ydiff, magnitude = self.distanceto(i, False)
+                    if magnitude < self.img_width * 2:
+                        self.ax += xdiff / magnitude * 0.05
+                        self.ay += ydiff / magnitude * 0.05
+                        # print("triggered")
+            if enemieslist != []:
+                for i in enemieslist:
+                    xdiff, ydiff, magnitude = self.distanceto(i, False)
+                    if magnitude < self.img_width * 3 and i.getv() >= 1:
+                        self.ax += xdiff / magnitude * 0.5
+                        self.ay += ydiff / magnitude * 0.5
+                        # print("running away")
+
 
 
     def move(self, display_width, display_height):
@@ -117,73 +162,51 @@ def game_loop():
     car = sprite("player", "racecar.png", 640, 400, 5, 5, 73, 82, True, 0.2, 0.995)
     ball = sprite("ball", "target.png", 640, 360, 20, 20, 50, 50, True, 0, 0.99)
     enemy = sprite("enemy", "redsquare.png", 50, 50, 1, 1, 30,30,True, 0, 0)
-    enemy2 = sprite("enemy", "redsquare.png", 500, 500, 1, 1, 30,30,True, 0, 0)
+    enemy2 = sprite("enemy", "redsquare.png", 1000, 650, 1, 1, 30,30,True, 0, 0)
+    enemy3 = sprite("enemy", "redsquare.png", 1000, 50, 1, 1, 30,30,True, 0, 0)
+
     pygame.key.set_repeat(1,1)
     gameExit = False
+
     while not gameExit:
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 gameExit = True
-
-            if (pygame.key.get_pressed()[pygame.K_LEFT]):
-                car.ax = -car.accel
-            if (pygame.key.get_pressed()[pygame.K_RIGHT]):
-                car.ax = car.accel
-            if (pygame.key.get_pressed()[pygame.K_UP]):
-                car.ay = -car.accel
-            if (pygame.key.get_pressed()[pygame.K_DOWN]):
-                car.ay = car.accel
-
-            if (pygame.key.get_pressed()[pygame.K_SPACE]):
-                dirx, diry = car.distanceto(ball, normed = True)
-                ball.ax = dirx
-                ball.ay = diry
             if (pygame.key.get_pressed()[pygame.K_ESCAPE]):
                 gameExit = True
-            if not(pygame.key.get_pressed()[pygame.K_LEFT] or
-                   pygame.key.get_pressed()[pygame.K_RIGHT]):
-                car.ax=0
-            if not(pygame.key.get_pressed()[pygame.K_UP] or
-                   pygame.key.get_pressed()[pygame.K_DOWN]):
-                car.ay=0
-            if not(pygame.key.get_pressed()[pygame.K_SPACE]):
-                ball.ax =0
-                ball.ay = 0
-        dirx, diry = car.distanceto(enemy)
-        enemy.ax = dirx * 0.05
-        enemy.ay = diry * 0.05
-        dirx, diry = car.distanceto(enemy2)
-        enemy2.ax = dirx * 0.05
-        enemy2.ay = diry * 0.05
+            car.spritecontrol()
+            ball.spritecontrol(car)
+
+        enemy.spritecontrol(car, [enemy2, enemy3], [ball])
+        enemy2.spritecontrol(car, [enemy, enemy3], [ball])
+        enemy3.spritecontrol(car, [enemy, enemy2], [ball])
+
         car.move(display_width, display_height)
         ball.move(display_width, display_height)
         enemy.move(display_width, display_height)
         enemy2.move(display_width, display_height)
-        if car.istouching(enemy):
-            if car.deadtime >= 50:
-                print("dead!")
-                car.deadtime = 0
-        if ball.istouching(enemy) and ball.getv() >= 5:
-            if enemy.deadtime >= 50:
-                print("kill!")
-                enemy.deadtime = 0
-        if car.istouching(enemy2):
-            if car.deadtime >= 50:
-                print("dead!")
-                car.deadtime = 0
-        if ball.istouching(enemy2) and ball.getv() >= 5:
-            if enemy2.deadtime >= 50:
-                print("kill!")
-                enemy2.deadtime = 0
+        enemy3.move(display_width, display_height)
+
+        for j in [enemy, enemy2, enemy3]:
+            if car.istouching(j):
+                if car.deadtime >= car.deadtimeseparation:
+                    print("dead!")
+                    car.deadtime = 0
+            if ball.istouching(j) and ball.getv() >= 5:
+                if j.deadtime >= j.deadtimeseparation:
+                    print("kill!")
+                    j.deadtime = 0
+            j.deadtime += 1
+
         car.deadtime += 1
-        enemy.deadtime += 1
-        enemy2.deadtime += 1
+
         gameDisplay.fill(white)
         car.draw(gameDisplay)
         ball.draw(gameDisplay)
         enemy.draw(gameDisplay)
         enemy2.draw(gameDisplay)
+        enemy3.draw(gameDisplay)
 
         pygame.display.update()
         clock.tick(144)
